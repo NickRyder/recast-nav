@@ -1,0 +1,23 @@
+[package]
+name = "bevy-recast-nav"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+repository.workspace = true
+license = "MIT OR Apache-2.0"
+description = "Headless Bevy integration for recast-nav"
+readme = "../../README.md"
+keywords = ["navigation", "navmesh", "recast", "pathfinding"]
+categories = ["algorithms", "game-development"]
+publish = false
+
+[dependencies]
+recast-nav = { path = "../recast-nav" }
+bevy_app.workspace = true
+bevy_ecs.workspace = true
+
+[lints]
+workspace = true
+
+[features]
+fma = ["recast-nav/fma"]

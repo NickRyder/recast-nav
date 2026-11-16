@@ -1,0 +1,3 @@
+# Preserve the reference exactly, including its upstream whitespace and line endings.
+vendor/recastnavigation/** -text -whitespace
+SOURCE_REVISION export-subst

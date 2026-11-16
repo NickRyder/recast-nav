@@ -1,0 +1,21 @@
+[workspace]
+members = ["crates/recast-nav", "crates/bevy-recast-nav"]
+resolver = "3"
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.95"
+repository = "https://github.com/NickRyder/recast-nav"
+license = "(MIT OR Apache-2.0) AND Zlib AND BSD-3-Clause"
+
+[workspace.dependencies]
+glam = { version = "0.33.2", features = ["u16", "u32", "i32"] }
+bevy_app = { version = "0.20.0", default-features = false, features = ["std"] }
+bevy_ecs = { version = "0.20.0", default-features = false, features = ["std"] }
+
+[workspace.lints.rust]
+unsafe_code = "forbid"
+
+[profile.dev]
+debug = 1

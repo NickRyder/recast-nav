@@ -1,0 +1,76 @@
+name: Conformance
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+jobs:
+  conformance:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        float_policy: [separate, fma]
+    runs-on: ${{ matrix.os }}
+    env:
+      CXX: clang++
+      FEATURES: recast-nav/cpp-oracle${{ matrix.float_policy == 'fma' && ',recast-nav/fma' || '' }}
+      RUSTUP_TOOLCHAIN: 1.97.1
+      RECAST_PARITY_DIAGNOSTICS_DIR: ${{ github.workspace }}/target/parity-diagnostics/debug
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - name: Install toolchain
+        run: rustup toolchain install 1.97.1 --profile minimal --component rustfmt --component clippy
+      - run: python3 scripts/check_vendor.py
+      - run: cargo fmt --all -- --check
+      - run: cargo clippy --locked -p recast-nav -p bevy-recast-nav --tests --examples --features "$FEATURES" -- -D warnings
+      - name: Check optional core features
+        if: matrix.float_policy == 'separate'
+        run: cargo clippy --locked -p recast-nav --lib --features serialize,tracing,libm,polyref64,fma -- -D warnings
+      - run: cargo test --locked --no-fail-fast -p recast-nav -p bevy-recast-nav --features "$FEATURES"
+      - name: Check optimized Linux arithmetic
+        if: ${{ !cancelled() && matrix.os == 'ubuntu-latest' }}
+        env:
+          RECAST_PARITY_DIAGNOSTICS_DIR: ${{ github.workspace }}/target/parity-diagnostics/release
+        run: cargo test --locked --no-fail-fast -p recast-nav --release --features "$FEATURES" --test float_comparison --test detour_common --test detour_data --test recast_utilities --test crowd
+      - name: Preserve differential traces
+        if: failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: parity-${{ matrix.os }}-${{ matrix.float_policy }}
+          path: |
+            target/parity-diagnostics/
+            target/parity-failures/
+          if-no-files-found: ignore
+      - run: cargo run --locked -p bevy-recast-nav --example headless
+      - run: python3 scripts/check_dependencies.py
+      - name: Build documentation
+        env:
+          RUSTDOCFLAGS: -D warnings
+        run: cargo doc --locked -p recast-nav -p bevy-recast-nav --no-deps
+  windows-rust:
+    runs-on: windows-2025
+    env:
+      RUSTUP_TOOLCHAIN: 1.97.1
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - name: Install toolchain
+        run: rustup toolchain install 1.97.1 --profile minimal
+      - name: Test Rust core and Bevy adapter
+        run: cargo test --locked -p recast-nav -p bevy-recast-nav
+      - name: Run pathfinding example
+        run: cargo run --locked -p recast-nav --example pathfinding
+      - name: Run headless Bevy example
+        run: cargo run --locked -p bevy-recast-nav --example headless
+  dependency-audit:
+    runs-on: ubuntu-latest
+    env:
+      RUSTUP_TOOLCHAIN: 1.97.1
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - run: rustup toolchain install 1.97.1 --profile minimal
+      - run: cargo install cargo-audit --locked --version 0.22.1
+      - run: cargo audit --deny warnings --file Cargo.lock
